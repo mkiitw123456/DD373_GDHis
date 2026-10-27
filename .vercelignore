@@ -1,0 +1,8 @@
+node_modules
+.git
+sync.config.json
+scripts
+public/data
+*-preview.png
+design-concept.png
+*.log

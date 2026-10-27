@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.vercel/
+.env*
+!.env.example
+sync.config.json
+*.log
+*-credentials.json
+sync-state.json
+*-preview.png
+design-concept.png
+public/data/
