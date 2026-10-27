@@ -3,6 +3,7 @@ const memory=new Map();let dbPromise;
 function db(){return dbPromise??=new Promise((resolve,reject)=>{const r=indexedDB.open('dd373-history-v1',1);r.onupgradeneeded=()=>r.result.createObjectStore('cache');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);}).catch(()=>null);}
 export async function get(key){try{const d=await db();if(!d)return memory.get(key);return await new Promise((resolve,reject)=>{const r=d.transaction('cache').objectStore('cache').get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}catch{return memory.get(key);}}
 export async function put(key,value){memory.set(key,value);try{const d=await db();if(!d)return false;await new Promise((resolve,reject)=>{const tx=d.transaction('cache','readwrite');tx.objectStore('cache').put(value,key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});return true;}catch{return false;}}
+async function pruneDays(manifest){const keep=new Set(Object.entries(manifest.days).map(([day,info])=>`day:${day}:${info.version}`));try{const d=await db();if(!d)return;await new Promise((resolve,reject)=>{const tx=d.transaction('cache','readwrite'),store=tx.objectStore('cache'),cursor=store.openCursor();cursor.onsuccess=()=>{const c=cursor.result;if(c){if(String(c.key).startsWith('day:')&&!keep.has(c.key))c.delete();c.continue();}};tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}catch{}}
 async function readJSON(url){const r=await fetch(url,{signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error('目前無法更新，已保留上次成功取得的資料。');return r.json();}
 const local=import.meta.env.DEV;
 const endpoint=local?'/data/manifest.json':'/api/data';
@@ -21,6 +22,6 @@ export function loadData(onCached){return inFlight??=(async()=>{
      return points;
    })));}
    const result={rows:parts.flat().sort((a,b)=>a[0]-b[0]),manifest,checkedAt:Date.now(),source:local?'本機歷史資料預覽':'Firebase'};
-   result.persisted=await put('snapshot',result);return result;
+   result.persisted=await put('snapshot',result);if(result.persisted)await pruneDays(manifest);return result;
  }catch(e){if(saved?.rows&&validPoints(saved.rows))return {...saved,error:e.message};throw e;}
 })().finally(()=>{inFlight=null;});}
